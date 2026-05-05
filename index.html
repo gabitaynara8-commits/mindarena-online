@@ -34,17 +34,15 @@ button{
   color:black;
   padding:15px;
   font-weight:bold;
+  cursor:pointer;
 }
 
-canvas{
-  border:1px solid white;
-}
 </style>
 </head>
 
 <body>
 
-<!-- 🔥 LOBBY -->
+<!-- LOBBY -->
 <div id="lobby">
 <h1>MindArena</h1>
 
@@ -60,15 +58,17 @@ canvas{
 <button onclick="start()">Iniciar</button>
 </div>
 
-<!-- 🔥 JOGO -->
+<!-- GAME -->
 <div id="game" class="hidden">
-<h1>JOGO INICIADO</h1>
+<h1>Sequência Numérica</h1>
 
-<button onclick="loadGame('memory')">Memória</button>
-<button onclick="loadGame('attention')">Atenção</button>
-<button onclick="loadGame('draw')">Desenho</button>
+<p>Tempo: <span id="time">0</span>s</p>
+<p>Erros: <span id="errors">0</span></p>
+<p>Próximo: <span id="current">1</span></p>
 
 <div id="gameArea"></div>
+
+<button onclick="startGame()">Reiniciar</button>
 </div>
 
 <script type="module">
@@ -92,6 +92,13 @@ const db = getDatabase(app);
 let roomId = "";
 let playerId = "p" + Date.now();
 
+// GAME STATE
+let current = 1;
+let errors = 0;
+let time = 0;
+let timerInterval;
+
+// 🔥 CREATE ROOM
 function createRoom(){
   roomId = Math.random().toString(36).substr(2,4).toUpperCase();
 
@@ -104,6 +111,7 @@ function createRoom(){
   joinRoom("Host");
 }
 
+// 🔥 JOIN ROOM
 function joinRoom(defaultName){
   roomId = document.getElementById("room").value || roomId;
 
@@ -120,6 +128,7 @@ function joinRoom(defaultName){
   listen();
 }
 
+// 🔥 LISTEN
 function listen(){
   onValue(ref(db,'rooms/'+roomId),(snap)=>{
     const data = snap.val();
@@ -131,10 +140,10 @@ function listen(){
     document.getElementById("players").innerHTML =
       list.map(p=>`<div>${p.name}</div>`).join('');
 
-    // 🔥 TROCA PRA TELA DE JOGO
     if(data.started){
       document.getElementById("lobby").classList.add("hidden");
       document.getElementById("game").classList.remove("hidden");
+      startGame();
     }
   });
 
@@ -144,51 +153,37 @@ function listen(){
   );
 }
 
+// 🔥 START GAME
 function start(){
   update(ref(db,'rooms/'+roomId),{started:true});
 }
 
-window.createRoom = createRoom;
-window.joinRoom = joinRoom;
-window.start = start;
-
 //////////////////////////////////////////////////
-// 🎮 SISTEMA DE JOGOS
+// 🎮 GAME LOGIC
 //////////////////////////////////////////////////
 
-window.loadGame = function(type){
+function startGame(){
 
-  const area = document.getElementById("gameArea");
+  current = 1;
+  errors = 0;
+  time = 0;
 
-  if(type === "memory"){
-    // 🔥 GRID DE MEMÓRIA
-    const nums = Array.from({length:36},(_,i)=>i+1)
-      .sort(()=>Math.random()-0.5);
+  document.getElementById("errors").innerText = errors;
+  document.getElementById("current").innerText = current;
+  document.getElementById("time").innerText = time;
 
-    area.innerHTML = `
-      <h2>Memorize os números</h2>
-      <div class="grid">
-        ${nums.map(n=>`<div class="cell">${n}</div>`).join('')}
-      </div>
-    `;
-
-    setTimeout(()=>{
-      document.querySelectorAll(".cell").forEach(c=>c.innerText="?");
-    },3000);
-  }
-
-  if(type === "attention"){if(type === "memory"){
-
-  let current = 1;
+  clearInterval(timerInterval);
+  timerInterval = setInterval(()=>{
+    time++;
+    document.getElementById("time").innerText = time;
+  },1000);
 
   const nums = Array.from({length:36},(_,i)=>i+1)
     .sort(()=>Math.random()-0.5);
 
-  area.innerHTML = `
-    <h2>Clique na sequência: 1 → 36</h2>
-    <p>Atual: <span id="current">${current}</span></p>
-    <div class="grid" id="grid"></div>
-  `;
+  const area = document.getElementById("gameArea");
+
+  area.innerHTML = `<div class="grid" id="grid"></div>`;
 
   const grid = document.getElementById("grid");
 
@@ -202,7 +197,6 @@ window.loadGame = function(type){
 
       if(parseInt(div.dataset.value) === current){
 
-        // ✅ ACERTO
         div.style.background = "green";
         div.style.color = "white";
 
@@ -210,14 +204,16 @@ window.loadGame = function(type){
         document.getElementById("current").innerText = current;
 
         if(current > 36){
-          alert("Finalizado com sucesso!");
+          clearInterval(timerInterval);
+          alert(`Finalizado!\nTempo: ${time}s\nErros: ${errors}`);
         }
 
       }else{
 
-        // ❌ ERRO
-        div.style.background = "red";
+        errors++;
+        document.getElementById("errors").innerText = errors;
 
+        div.style.background = "red";
         setTimeout(()=>{
           div.style.background = "white";
         },300);
@@ -228,27 +224,11 @@ window.loadGame = function(type){
   });
 }
 
-  if(type === "draw"){
-    // 🔥 DESENHO
-    area.innerHTML = `
-      <h2>Desenhe a figura</h2>
-      <canvas id="drawCanvas" width="300" height="300"></canvas>
-    `;
+//////////////////////////////////////////////////
 
-    const canvas = document.getElementById("drawCanvas");
-    const ctx = canvas.getContext("2d");
-
-    let drawing=false;
-
-    canvas.onmousedown=()=>drawing=true;
-    canvas.onmouseup=()=>drawing=false;
-    canvas.onmousemove=(e)=>{
-      if(!drawing) return;
-      ctx.fillRect(e.offsetX,e.offsetY,3,3);
-    };
-  }
-
-}
+window.createRoom = createRoom;
+window.joinRoom = joinRoom;
+window.start = start;
 
 </script>
 
