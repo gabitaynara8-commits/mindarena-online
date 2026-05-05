@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>MindArena Online</title>
+<title>MindArena PRO</title>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
@@ -13,35 +13,63 @@ body{
   background:#0b1320;
   color:white;
 }
+
 button{
   padding:10px;
   margin:5px;
   cursor:pointer;
 }
-#gameArea{
-  margin-top:20px;
+
+.hidden{display:none;}
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(6,60px);
+  gap:5px;
+  justify-content:center;
+}
+
+.cell{
+  background:white;
+  color:black;
+  padding:15px;
+  font-weight:bold;
+}
+
+canvas{
+  border:1px solid white;
 }
 </style>
 </head>
 
 <body>
 
+<!-- 🔥 LOBBY -->
+<div id="lobby">
 <h1>MindArena</h1>
 
-<div id="lobby">
-  <button onclick="createRoom()">Criar Sala</button><br>
-  <input id="room" placeholder="Código"><br>
-  <input id="name" placeholder="Nome"><br>
-  <button onclick="joinRoom()">Entrar</button>
+<button onclick="createRoom()">Criar Sala</button><br>
+<input id="room" placeholder="Código"><br>
+<input id="name" placeholder="Nome"><br>
+<button onclick="joinRoom()">Entrar</button>
 
-  <h2 id="roomCode"></h2>
-  <canvas id="qr"></canvas>
-  <div id="players"></div>
+<h2 id="roomCode"></h2>
+<canvas id="qr"></canvas>
 
-  <button id="startBtn" onclick="start()">Iniciar</button>
+<div id="players"></div>
+<button onclick="start()">Iniciar</button>
 </div>
 
-<div id="game" style="display:none;"></div>
+<!-- 🔥 JOGO -->
+<div id="game" class="hidden">
+<h1>JOGO INICIADO</h1>
+
+<button onclick="loadGame('memory')">Memória</button>
+<button onclick="loadGame('attention')">Atenção</button>
+<button onclick="loadGame('draw')">Desenho</button>
+
+<div id="gameArea"></div>
+</div>
 
 <script type="module">
 
@@ -63,10 +91,7 @@ const db = getDatabase(app);
 
 let roomId = "";
 let playerId = "p" + Date.now();
-let isHost = false;
 
-
-// 🔥 CRIAR SALA
 function createRoom(){
   roomId = Math.random().toString(36).substr(2,4).toUpperCase();
 
@@ -76,14 +101,9 @@ function createRoom(){
   });
 
   document.getElementById("room").value = roomId;
-
-  isHost = true;
-
   joinRoom("Host");
 }
 
-
-// 🔥 ENTRAR NA SALA
 function joinRoom(defaultName){
   roomId = document.getElementById("room").value || roomId;
 
@@ -94,15 +114,12 @@ function joinRoom(defaultName){
     : (defaultName || "Jogador");
 
   update(ref(db,'rooms/'+roomId+'/players/'+playerId),{
-    name: name,
-    score: 0
+    name: name
   });
 
   listen();
 }
 
-
-// 🔥 ESCUTAR TEMPO REAL
 function listen(){
   onValue(ref(db,'rooms/'+roomId),(snap)=>{
     const data = snap.val();
@@ -110,21 +127,14 @@ function listen(){
 
     document.getElementById("roomCode").innerText = roomId;
 
-    const players = data.players || {};
-    const list = Object.entries(players);
-
+    const list = Object.values(data.players || {});
     document.getElementById("players").innerHTML =
-      list.map(([id,p])=>`<div>${p.name}</div>`).join('');
+      list.map(p=>`<div>${p.name}</div>`).join('');
 
-    // 🔥 DEFINE HOST (primeiro jogador)
-    const firstPlayer = Object.keys(players)[0];
-    isHost = playerId === firstPlayer;
-
-    document.getElementById("startBtn").style.display = isHost ? "inline-block" : "none";
-
-    // 🔥 INICIO DO JOGO
+    // 🔥 TROCA PRA TELA DE JOGO
     if(data.started){
-      loadGame(players);
+      document.getElementById("lobby").classList.add("hidden");
+      document.getElementById("game").classList.remove("hidden");
     }
   });
 
@@ -134,71 +144,71 @@ function listen(){
   );
 }
 
-
-// 🔥 INICIAR JOGO
 function start(){
-  if(!isHost) return;
   update(ref(db,'rooms/'+roomId),{started:true});
 }
 
-
-// 🔥 TROCAR PARA TELA DO JOGO
-function loadGame(players){
-
-  document.getElementById("lobby").style.display = "none";
-  document.getElementById("game").style.display = "block";
-
-  document.getElementById("game").innerHTML = `
-    <h1>🎮 Jogo iniciado!</h1>
-    <p>Sala: ${roomId}</p>
-    <div id="gameArea"></div>
-    <h3>Placar</h3>
-    <div id="scoreboard"></div>
-  `;
-
-  startGame(players);
-}
-
-
-// 🔥 LÓGICA DO JOGO (EXEMPLO)
-function startGame(players){
-
-  const gameArea = document.getElementById("gameArea");
-
-  gameArea.innerHTML = `
-    <p>Clique rápido para ganhar pontos!</p>
-    <button id="clickBtn">CLIQUE!</button>
-  `;
-
-  document.getElementById("clickBtn").onclick = ()=>{
-    const playerRef = ref(db,'rooms/'+roomId+'/players/'+playerId);
-
-    update(playerRef,{
-      score: (Math.random()*10|0) + 1
-    });
-  };
-
-  // 🔥 ATUALIZA PLACAR EM TEMPO REAL
-  onValue(ref(db,'rooms/'+roomId+'/players'),(snap)=>{
-    const data = snap.val() || {};
-
-    document.getElementById("scoreboard").innerHTML =
-      Object.values(data)
-        .map(p=>`<div>${p.name}: ${p.score}</div>`)
-        .join('');
-  });
-}
-
-
-// 🔥 GLOBAL
 window.createRoom = createRoom;
 window.joinRoom = joinRoom;
 window.start = start;
 
-</script>
+//////////////////////////////////////////////////
+// 🎮 SISTEMA DE JOGOS
+//////////////////////////////////////////////////
 
-</body>
-</html>
+window.loadGame = function(type){
+
+  const area = document.getElementById("gameArea");
+
+  if(type === "memory"){
+    // 🔥 GRID DE MEMÓRIA
+    const nums = Array.from({length:36},(_,i)=>i+1)
+      .sort(()=>Math.random()-0.5);
+
+    area.innerHTML = `
+      <h2>Memorize os números</h2>
+      <div class="grid">
+        ${nums.map(n=>`<div class="cell">${n}</div>`).join('')}
+      </div>
+    `;
+
+    setTimeout(()=>{
+      document.querySelectorAll(".cell").forEach(c=>c.innerText="?");
+    },3000);
+  }
+
+  if(type === "attention"){
+    // 🔥 JOGO DE ATENÇÃO (erro)
+    area.innerHTML = `
+      <h2>Encontre o erro</h2>
+      <img src="https://i.imgur.com/yourImage.png" width="300">
+      <p>Clique onde está errado</p>
+    `;
+  }
+
+  if(type === "draw"){
+    // 🔥 DESENHO
+    area.innerHTML = `
+      <h2>Desenhe a figura</h2>
+      <canvas id="drawCanvas" width="300" height="300"></canvas>
+    `;
+
+    const canvas = document.getElementById("drawCanvas");
+    const ctx = canvas.getContext("2d");
+
+    let drawing=false;
+
+    canvas.onmousedown=()=>drawing=true;
+    canvas.onmouseup=()=>drawing=false;
+    canvas.onmousemove=(e)=>{
+      if(!drawing) return;
+      ctx.fillRect(e.offsetX,e.offsetY,3,3);
+    };
+  }
+
+}
+
+</script>
 
 </body>
 </html>
