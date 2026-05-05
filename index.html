@@ -7,10 +7,17 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
 <style>
-body{font-family:Arial;text-align:center;background:#0b1320;color:white}
-.btn{padding:10px;margin:5px}
+body{
+  font-family:Arial;
+  text-align:center;
+  background:#0b1320;
+  color:white;
+}
+input,button{
+  padding:10px;
+  margin:5px;
+}
 </style>
-
 </head>
 
 <body>
@@ -52,6 +59,7 @@ const db = getDatabase(app);
 let roomId = "";
 let playerId = "p" + Date.now();
 
+// 🔥 CRIAR SALA
 function createRoom(){
   roomId = Math.random().toString(36).substr(2,4).toUpperCase();
 
@@ -62,14 +70,15 @@ function createRoom(){
 
   document.getElementById("roomCode").innerText = roomId;
 
-  // entra como host
+  // define host automaticamente
   document.getElementById("name").value = "Host";
+
   joinRoom();
 
-  // gera QR
   QRCode.toCanvas(document.getElementById("qr"), window.location.href);
 }
 
+// 🔥 ENTRAR NA SALA
 function joinRoom(){
   roomId = document.getElementById("room").value || roomId;
 
@@ -83,8 +92,9 @@ function joinRoom(){
   listenPlayers();
 }
 
+// 🔥 OUVIR JOGADORES
 function listenPlayers(){
-  onValue(ref(db,'rooms/'+roomId), (snap)=>{
+  onValue(ref(db,'rooms/'+roomId),(snap)=>{
     const data = snap.val();
     if(!data) return;
 
@@ -105,10 +115,12 @@ function listenPlayers(){
   });
 }
 
+// 🔥 INICIAR JOGO
 function start(){
   update(ref(db,'rooms/'+roomId),{started:true});
 }
 
+// 🔥 ESSENCIAL (HTML CONSEGUIR CHAMAR)
 window.createRoom = createRoom;
 window.joinRoom = joinRoom;
 window.start = start;
