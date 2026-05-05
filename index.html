@@ -17,7 +17,7 @@ body{font-family:Arial;text-align:center;background:#0b1320;color:white}
 <button onclick="createRoom()">Criar Sala</button><br>
 <input id="room" placeholder="Código"><br>
 <input id="name" placeholder="Nome"><br>
-<button onclick="join()">Entrar</button>
+<button onclick="joinRoom()">Entrar</button>
 
 <h2 id="roomCode"></h2>
 <canvas id="qr"></canvas>
@@ -91,6 +91,9 @@ function listen(){
 function start(){
   update(ref(db,'rooms/'+roomId),{started:true});
 }
+window.createRoom = createRoom;
+window.joinRoom = joinRoom;
+window.start = start;
 </script>
 
 </body>
