@@ -177,14 +177,56 @@ window.loadGame = function(type){
     },3000);
   }
 
-  if(type === "attention"){
-    // 🔥 JOGO DE ATENÇÃO (erro)
-    area.innerHTML = `
-      <h2>Encontre o erro</h2>
-      <img src="https://i.imgur.com/yourImage.png" width="300">
-      <p>Clique onde está errado</p>
-    `;
-  }
+  if(type === "attention"){if(type === "memory"){
+
+  let current = 1;
+
+  const nums = Array.from({length:36},(_,i)=>i+1)
+    .sort(()=>Math.random()-0.5);
+
+  area.innerHTML = `
+    <h2>Clique na sequência: 1 → 36</h2>
+    <p>Atual: <span id="current">${current}</span></p>
+    <div class="grid" id="grid"></div>
+  `;
+
+  const grid = document.getElementById("grid");
+
+  nums.forEach(n=>{
+    const div = document.createElement("div");
+    div.className = "cell";
+    div.innerText = n;
+    div.dataset.value = n;
+
+    div.onclick = ()=>{
+
+      if(parseInt(div.dataset.value) === current){
+
+        // ✅ ACERTO
+        div.style.background = "green";
+        div.style.color = "white";
+
+        current++;
+        document.getElementById("current").innerText = current;
+
+        if(current > 36){
+          alert("Finalizado com sucesso!");
+        }
+
+      }else{
+
+        // ❌ ERRO
+        div.style.background = "red";
+
+        setTimeout(()=>{
+          div.style.background = "white";
+        },300);
+      }
+    };
+
+    grid.appendChild(div);
+  });
+}
 
   if(type === "draw"){
     // 🔥 DESENHO
