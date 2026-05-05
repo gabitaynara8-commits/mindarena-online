@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>MindArena Online</title>
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<style>
+body{font-family:Arial;text-align:center;background:#0b1320;color:white}
+.btn{padding:10px;margin:5px}
+</style>
+</head>
+
+<body>
+
+<h1>MindArena</h1>
+
+<button onclick="createRoom()">Criar Sala</button><br>
+<input id="room" placeholder="Código"><br>
+<input id="name" placeholder="Nome"><br>
+<button onclick="join()">Entrar</button>
+
+<h2 id="roomCode"></h2>
+<canvas id="qr"></canvas>
+<div id="players"></div>
+<button onclick="start()">Iniciar</button>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "COLE_AQUI",
+  authDomain: "COLE_AQUI",
+  databaseURL: "COLE_AQUI",
+  projectId: "COLE_AQUI"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let roomId = "";
+let playerId = "p"+Date.now();
+
+function createRoom(){
+  roomId = Math.random().toString(36).substr(2,4).toUpperCase();
+
+  set(ref(db,'rooms/'+roomId),{
+    started:false,
+    players:{}
+  });
+
+  joinRoom("Host");
+}
+
+function join(){
+  roomId = document.getElementById("room").value;
+  const name = document.getElementById("name").value;
+  joinRoom(name);
+}
+
+function joinRoom(name){
+  update(ref(db,'rooms/'+roomId+'/players/'+playerId),{
+    name:name
+  });
+
+  listen();
+}
+
+function listen(){
+  onValue(ref(db,'rooms/'+roomId),(snap)=>{
+    const data = snap.val();
+    if(!data) return;
+
+    document.getElementById("roomCode").innerText = roomId;
+
+    const list = Object.values(data.players||{});
+    document.getElementById("players").innerHTML =
+      list.map(p=>`<div>${p.name}</div>`).join('');
+
+    if(data.started){
+      alert("Jogo iniciou!");
+    }
+  });
+
+  QRCode.toCanvas(document.getElementById("qr"), window.location.href);
+}
+
+function start(){
+  update(ref(db,'rooms/'+roomId),{started:true});
+}
+</script>
+
+</body>
+</html>
