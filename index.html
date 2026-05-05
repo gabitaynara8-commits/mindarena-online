@@ -13,15 +13,48 @@ body{
   background:#0b1320;
   color:white;
 }
+
+/* LOBBY */
 button{
   padding:10px;
   margin:5px;
+  border:none;
+  border-radius:8px;
+  background:#00d4ff;
+  color:black;
+  cursor:pointer;
+}
+
+/* JOGO */
+#gameContainer{
+  display:none;
+}
+
+.game-box{
+  margin-top:50px;
+}
+
+.question{
+  font-size:24px;
+  margin:20px;
+}
+
+.answer{
+  display:block;
+  margin:10px auto;
+  padding:10px;
+  width:200px;
+  background:#1c2541;
+  color:white;
+  border-radius:8px;
+  cursor:pointer;
 }
 </style>
 </head>
 
 <body>
 
+<!-- 🔥 LOBBY -->
 <h1>MindArena</h1>
 
 <button onclick="createRoom()">Criar Sala</button><br>
@@ -34,7 +67,16 @@ button{
 <div id="players"></div>
 <button onclick="start()">Iniciar</button>
 
-<!-- 🔥 SCRIPT CORRETO -->
+<!-- 🎮 JOGO -->
+<div id="gameContainer">
+  <h1>MindArena - Jogo</h1>
+
+  <div class="game-box">
+    <div id="question" class="question"></div>
+    <div id="answers"></div>
+  </div>
+</div>
+
 <script type="module">
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -67,12 +109,11 @@ function createRoom(){
   });
 
   document.getElementById("room").value = roomId;
-
   joinRoom("Host");
 }
 
 
-// 🔥 ENTRAR NA SALA
+// 🔥 ENTRAR
 function joinRoom(defaultName){
   roomId = document.getElementById("room").value || roomId;
 
@@ -83,14 +124,15 @@ function joinRoom(defaultName){
     : (defaultName || "Jogador");
 
   update(ref(db,'rooms/'+roomId+'/players/'+playerId),{
-    name: name
+    name: name,
+    score:0
   });
 
   listen();
 }
 
 
-// 🔥 ESCUTAR DADOS EM TEMPO REAL
+// 🔥 LISTENER
 function listen(){
   onValue(ref(db,'rooms/'+roomId),(snap)=>{
     const data = snap.val();
@@ -98,13 +140,13 @@ function listen(){
 
     document.getElementById("roomCode").innerText = roomId;
 
-    const list = Object.values(data.players || {});
+    const list = Object.entries(data.players || {});
 
     document.getElementById("players").innerHTML =
-      list.map(p=>`<div>${p.name}</div>`).join('');
+      list.map(([id,p])=>`<div>${p.name} - ${p.score || 0}</div>`).join('');
 
     if(data.started){
-      alert("Jogo iniciou!");
+      startGame();
     }
   });
 
@@ -115,21 +157,90 @@ function listen(){
 }
 
 
-// 🔥 INICIAR JOGO
+// 🔥 INICIAR
 function start(){
   update(ref(db,'rooms/'+roomId),{started:true});
 }
 
 
-// 🔥 TORNA GLOBAL (ESSENCIAL!)
+// 🎮 INICIAR JOGO
+function startGame(){
+  document.body.innerHTML = document.getElementById("gameContainer").outerHTML;
+  initGame();
+}
+
+
+// 🎯 PERGUNTAS
+const questions = [
+  {
+    q:"Quanto é 2 + 2?",
+    a:["3","4","5"],
+    correct:1
+  },
+  {
+    q:"Capital do Brasil?",
+    a:["Rio","Brasília","SP"],
+    correct:1
+  }
+];
+
+let current = 0;
+
+
+// 🎮 LOGICA DO JOGO
+function initGame(){
+  showQuestion();
+}
+
+function showQuestion(){
+  const q = questions[current];
+
+  document.getElementById("question").innerText = q.q;
+
+  document.getElementById("answers").innerHTML =
+    q.a.map((ans,i)=>`
+      <div class="answer" onclick="answer(${i})">${ans}</div>
+    `).join('');
+}
+
+
+// 🎯 RESPONDER
+window.answer = function(i){
+  const q = questions[current];
+
+  if(i === q.correct){
+    alert("Correto!");
+    update(ref(db,'rooms/'+roomId+'/players/'+playerId),{
+      score: incrementScore()
+    });
+  }else{
+    alert("Errado!");
+  }
+
+  current++;
+
+  if(current < questions.length){
+    showQuestion();
+  }else{
+    alert("Fim de jogo!");
+  }
+}
+
+
+// 🔢 SCORE LOCAL
+let localScore = 0;
+function incrementScore(){
+  localScore++;
+  return localScore;
+}
+
+
+// 🔥 GLOBAL
 window.createRoom = createRoom;
 window.joinRoom = joinRoom;
 window.start = start;
 
 </script>
-
-</body>
-</html>
 
 </body>
 </html>
