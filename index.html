@@ -13,7 +13,7 @@ body{
   background:#0b1320;
   color:white;
 }
-input,button{
+button{
   padding:10px;
   margin:5px;
 }
@@ -25,21 +25,18 @@ input,button{
 <h1>MindArena</h1>
 
 <button onclick="createRoom()">Criar Sala</button><br>
-
 <input id="room" placeholder="Código"><br>
 <input id="name" placeholder="Nome"><br>
-
 <button onclick="joinRoom()">Entrar</button>
 
 <h2 id="roomCode"></h2>
-
 <canvas id="qr"></canvas>
-
 <div id="players"></div>
-
 <button onclick="start()">Iniciar</button>
 
+<!-- 🔥 SCRIPT CORRETO -->
 <script type="module">
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
@@ -59,6 +56,7 @@ const db = getDatabase(app);
 let roomId = "";
 let playerId = "p" + Date.now();
 
+
 // 🔥 CRIAR SALA
 function createRoom(){
   roomId = Math.random().toString(36).substr(2,4).toUpperCase();
@@ -68,64 +66,70 @@ function createRoom(){
     players:{}
   });
 
-  document.getElementById("roomCode").innerText = roomId;
+  document.getElementById("room").value = roomId;
 
-  // define host automaticamente
-  document.getElementById("name").value = "Host";
-
-  joinRoom();
-
-  QRCode.toCanvas(document.getElementById("qr"), window.location.href);
+  joinRoom("Host");
 }
 
+
 // 🔥 ENTRAR NA SALA
-function joinRoom(){
+function joinRoom(defaultName){
   roomId = document.getElementById("room").value || roomId;
 
   let nameInput = document.getElementById("name").value;
-  const name = nameInput && nameInput.trim() !== "" ? nameInput : "Jogador";
+
+  const name = nameInput && nameInput.trim() !== "" 
+    ? nameInput 
+    : (defaultName || "Jogador");
 
   update(ref(db,'rooms/'+roomId+'/players/'+playerId),{
     name: name
   });
 
-  listenPlayers();
+  listen();
 }
 
-// 🔥 OUVIR JOGADORES
-function listenPlayers(){
+
+// 🔥 ESCUTAR DADOS EM TEMPO REAL
+function listen(){
   onValue(ref(db,'rooms/'+roomId),(snap)=>{
     const data = snap.val();
     if(!data) return;
 
     document.getElementById("roomCode").innerText = roomId;
 
-    const players = data.players || {};
+    const list = Object.values(data.players || {});
 
-    let html = "";
-    for(let id in players){
-      html += `<div>${players[id].name}</div>`;
-    }
-
-    document.getElementById("players").innerHTML = html;
+    document.getElementById("players").innerHTML =
+      list.map(p=>`<div>${p.name}</div>`).join('');
 
     if(data.started){
       alert("Jogo iniciou!");
     }
   });
+
+  QRCode.toCanvas(
+    document.getElementById("qr"),
+    window.location.href + "?room=" + roomId
+  );
 }
+
 
 // 🔥 INICIAR JOGO
 function start(){
   update(ref(db,'rooms/'+roomId),{started:true});
 }
 
-// 🔥 ESSENCIAL (HTML CONSEGUIR CHAMAR)
+
+// 🔥 TORNA GLOBAL (ESSENCIAL!)
 window.createRoom = createRoom;
 window.joinRoom = joinRoom;
 window.start = start;
 
 </script>
+
+</body>
+</html>
 
 </body>
 </html>
