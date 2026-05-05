@@ -13,69 +13,35 @@ body{
   background:#0b1320;
   color:white;
 }
-
-/* LOBBY */
 button{
   padding:10px;
   margin:5px;
-  border:none;
-  border-radius:8px;
-  background:#00d4ff;
-  color:black;
   cursor:pointer;
 }
-
-/* JOGO */
-#gameContainer{
-  display:none;
-}
-
-.game-box{
-  margin-top:50px;
-}
-
-.question{
-  font-size:24px;
-  margin:20px;
-}
-
-.answer{
-  display:block;
-  margin:10px auto;
-  padding:10px;
-  width:200px;
-  background:#1c2541;
-  color:white;
-  border-radius:8px;
-  cursor:pointer;
+#gameArea{
+  margin-top:20px;
 }
 </style>
 </head>
 
 <body>
 
-<!-- 🔥 LOBBY -->
 <h1>MindArena</h1>
 
-<button onclick="createRoom()">Criar Sala</button><br>
-<input id="room" placeholder="Código"><br>
-<input id="name" placeholder="Nome"><br>
-<button onclick="joinRoom()">Entrar</button>
+<div id="lobby">
+  <button onclick="createRoom()">Criar Sala</button><br>
+  <input id="room" placeholder="Código"><br>
+  <input id="name" placeholder="Nome"><br>
+  <button onclick="joinRoom()">Entrar</button>
 
-<h2 id="roomCode"></h2>
-<canvas id="qr"></canvas>
-<div id="players"></div>
-<button onclick="start()">Iniciar</button>
+  <h2 id="roomCode"></h2>
+  <canvas id="qr"></canvas>
+  <div id="players"></div>
 
-<!-- 🎮 JOGO -->
-<div id="gameContainer">
-  <h1>MindArena - Jogo</h1>
-
-  <div class="game-box">
-    <div id="question" class="question"></div>
-    <div id="answers"></div>
-  </div>
+  <button id="startBtn" onclick="start()">Iniciar</button>
 </div>
+
+<div id="game" style="display:none;"></div>
 
 <script type="module">
 
@@ -97,6 +63,7 @@ const db = getDatabase(app);
 
 let roomId = "";
 let playerId = "p" + Date.now();
+let isHost = false;
 
 
 // 🔥 CRIAR SALA
@@ -109,11 +76,14 @@ function createRoom(){
   });
 
   document.getElementById("room").value = roomId;
+
+  isHost = true;
+
   joinRoom("Host");
 }
 
 
-// 🔥 ENTRAR
+// 🔥 ENTRAR NA SALA
 function joinRoom(defaultName){
   roomId = document.getElementById("room").value || roomId;
 
@@ -125,14 +95,14 @@ function joinRoom(defaultName){
 
   update(ref(db,'rooms/'+roomId+'/players/'+playerId),{
     name: name,
-    score:0
+    score: 0
   });
 
   listen();
 }
 
 
-// 🔥 LISTENER
+// 🔥 ESCUTAR TEMPO REAL
 function listen(){
   onValue(ref(db,'rooms/'+roomId),(snap)=>{
     const data = snap.val();
@@ -140,13 +110,21 @@ function listen(){
 
     document.getElementById("roomCode").innerText = roomId;
 
-    const list = Object.entries(data.players || {});
+    const players = data.players || {};
+    const list = Object.entries(players);
 
     document.getElementById("players").innerHTML =
-      list.map(([id,p])=>`<div>${p.name} - ${p.score || 0}</div>`).join('');
+      list.map(([id,p])=>`<div>${p.name}</div>`).join('');
 
+    // 🔥 DEFINE HOST (primeiro jogador)
+    const firstPlayer = Object.keys(players)[0];
+    isHost = playerId === firstPlayer;
+
+    document.getElementById("startBtn").style.display = isHost ? "inline-block" : "none";
+
+    // 🔥 INICIO DO JOGO
     if(data.started){
-      startGame();
+      loadGame(players);
     }
   });
 
@@ -157,81 +135,58 @@ function listen(){
 }
 
 
-// 🔥 INICIAR
+// 🔥 INICIAR JOGO
 function start(){
+  if(!isHost) return;
   update(ref(db,'rooms/'+roomId),{started:true});
 }
 
 
-// 🎮 INICIAR JOGO
-function startGame(){
-  document.body.innerHTML = document.getElementById("gameContainer").outerHTML;
-  initGame();
+// 🔥 TROCAR PARA TELA DO JOGO
+function loadGame(players){
+
+  document.getElementById("lobby").style.display = "none";
+  document.getElementById("game").style.display = "block";
+
+  document.getElementById("game").innerHTML = `
+    <h1>🎮 Jogo iniciado!</h1>
+    <p>Sala: ${roomId}</p>
+    <div id="gameArea"></div>
+    <h3>Placar</h3>
+    <div id="scoreboard"></div>
+  `;
+
+  startGame(players);
 }
 
 
-// 🎯 PERGUNTAS
-const questions = [
-  {
-    q:"Quanto é 2 + 2?",
-    a:["3","4","5"],
-    correct:1
-  },
-  {
-    q:"Capital do Brasil?",
-    a:["Rio","Brasília","SP"],
-    correct:1
-  }
-];
+// 🔥 LÓGICA DO JOGO (EXEMPLO)
+function startGame(players){
 
-let current = 0;
+  const gameArea = document.getElementById("gameArea");
 
+  gameArea.innerHTML = `
+    <p>Clique rápido para ganhar pontos!</p>
+    <button id="clickBtn">CLIQUE!</button>
+  `;
 
-// 🎮 LOGICA DO JOGO
-function initGame(){
-  showQuestion();
-}
+  document.getElementById("clickBtn").onclick = ()=>{
+    const playerRef = ref(db,'rooms/'+roomId+'/players/'+playerId);
 
-function showQuestion(){
-  const q = questions[current];
-
-  document.getElementById("question").innerText = q.q;
-
-  document.getElementById("answers").innerHTML =
-    q.a.map((ans,i)=>`
-      <div class="answer" onclick="answer(${i})">${ans}</div>
-    `).join('');
-}
-
-
-// 🎯 RESPONDER
-window.answer = function(i){
-  const q = questions[current];
-
-  if(i === q.correct){
-    alert("Correto!");
-    update(ref(db,'rooms/'+roomId+'/players/'+playerId),{
-      score: incrementScore()
+    update(playerRef,{
+      score: (Math.random()*10|0) + 1
     });
-  }else{
-    alert("Errado!");
-  }
+  };
 
-  current++;
+  // 🔥 ATUALIZA PLACAR EM TEMPO REAL
+  onValue(ref(db,'rooms/'+roomId+'/players'),(snap)=>{
+    const data = snap.val() || {};
 
-  if(current < questions.length){
-    showQuestion();
-  }else{
-    alert("Fim de jogo!");
-  }
-}
-
-
-// 🔢 SCORE LOCAL
-let localScore = 0;
-function incrementScore(){
-  localScore++;
-  return localScore;
+    document.getElementById("scoreboard").innerHTML =
+      Object.values(data)
+        .map(p=>`<div>${p.name}: ${p.score}</div>`)
+        .join('');
+  });
 }
 
 
@@ -241,6 +196,9 @@ window.joinRoom = joinRoom;
 window.start = start;
 
 </script>
+
+</body>
+</html>
 
 </body>
 </html>
